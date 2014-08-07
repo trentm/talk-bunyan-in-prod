@@ -105,8 +105,6 @@ ul, ol, div, p {
 	overflow: visible;
 	display: block;
 
-	text-align: center;
-
 	-webkit-perspective: none;
 	   -moz-perspective: none;
 	    -ms-perspective: none;
