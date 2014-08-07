@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Bunyan Logging in Production at Joyent</title>
+
+    <meta name="author" content="Trent Mick">
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/theme/trent.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+    <script>
+        if( window.location.search.match( /print-pdf/gi ) ) {
+            var link = document.createElement( 'link' );
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = 'css/print/pdf.css';
+            document.getElementsByTagName( 'head' )[0].appendChild( link );
+        }
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+<!-- Joyent logo at bottom left of the page. -->
+<div id="logo" style="position: fixed; bottom: 20px; left: 20px;"><img src="./img/logo.svg" width=100/></div>
+
+<div class="reveal">
+<div class="slides">
+
+<section>
+    <h1>Bunyan Logging in Production at Joyent</h1>
+    <p>Trent Mick (<a href="https://twitter.com/trentmick">@trentmick</a>)<br>
+    <a href="http://www.joyent.com">Joyent</a></p>
+</section>
+
+<section>
+    <h2>Bunyan Logging ...</h2>
+    <ul>
+        <li>Blow through usage and some features.</li>
+    </ul>
+
+    <h2>... in production at Joyent</h2>
+    <ul>
+        <li>Show a few (hopefully) interesting examples from production experiences.</li>
+        <li>Discuss some motivations.</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Bunyan is</h2>
+    <p style="margin: 0 0 1em 1em">&#x2460 A node.js lib for structured service <small>(and CLI)</small> logging</p>
+
+    <pre><code data-trim contenteditable>$ npm install bunyan
+$ cat foo.js</code></pre>
+    <pre><code data-trim contenteditable>
+var bunyan = require('bunyan');
+var log = bunyan.createLogger({
+    name: 'foo',
+    // ...
+});
+
+log.info('hi');
+
+var err = new Error('ack');
+log.error(err, 'boom!');
+</code></pre>
+</section>
+
+<section>
+    <h2>Bunyan is</h2>
+    <p style="margin: 0 0 1em 1em">&#x2461 A (lightweight) JSON log format</p>
+
+    <ul>
+        <li>one line of JSON per record, small set of minimal fields:
+        <pre><code data-trim contenteditable>{"name":"foo","hostname":"grape.local","pid":68313,"level":30,
+    "msg":"hi","time":"2014-08-07T06:18:53.057Z","v":0}</code></pre>
+        </li>
+        <li>The primary audience of logs is machine processing.</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Bunyan is</h2>
+    <p style="margin: 0 0 1em 1em">&#x2462 A <code>bunyan</code> CLI for viewing and filtering logs</p>
+
+    <p>Reading JSON sucks, but ANSI codes in files + custom parsing code suck
+    more:
+    <img width="850" height="193" src="./img/bunyan-cli-foo2.png" alt="Bunyan CLI example">
+
+    <pre><code data-trim contenteditable>
+bunyan foo.log [bar.log ...]
+bunyan -l warn foo.log
+bunyan -c 'this.user=="bob"' foo.log
+</code></pre>
+    </p>
+</section>
+
+<section>
+    <h2>Bunyan features</h2>
+
+    <ul>
+    <li>standard <em>levels</em>: trace, debug, info, warn, error, fatal</li>
+    <li>extensible <em>streams</em> for directing logs to stderr, stdout, files,
+    rotating files, custom endpoints</li>
+    <li>light-weight specialization of Loggers with <code>log.child</code></li>
+    <li>custom rendering of logged objects with <em>serializers</em></li>
+    <li>runtime log snooping via DTrace support</li>
+    </ul>
+
+    <p style="margin-top: 1em">See <a href="https://github.com/trentm/node-bunyan#readme">README</a> for
+    more.</p>
+</section>
+
+
+<section>
+    <div><img src="./img/logo.svg" width=300/>
+    <img src="./img/sdc.png" width=350/>
+    </div>
+
+    <ul>
+        <li>~40 service/agent/tool log types (~90% bunyan)</li>
+        <li>1-5 service instances, one agent instance per server</li>
+        <li>~12 DCs (counting test and staging DCs)</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Motivation: Log more details</h2>
+
+    <ul>
+        <li>Make it convenient in code to log more and appropriate details.</li>
+        <li>Painful, limited (traditional):
+        <pre><code data-trim contenteditable>log.info('%s %s %s %s', req.method, req.url,
+    res.statusCode, res.latency)</code></pre></li>
+        <li>Easier to code (bunyan):
+        <pre><code data-trim contenteditable>log.info({req: req}, 'received request');
+log.debug({res: res}, 'responded');
+log.error({err: err, path: path}, 'save failed');</code></pre></li>
+    </ul>
+</section>
+
+<section>
+    <section>
+        <h2>Log more details: render nicely</h2>
+
+        <p>Make having the extra details not a burden when browsing logs by
+        rendering them nicely.</p>
+    </section>
+    <section>
+        <h2>HTTP request</h2>
+        <img src="./img/req.png"/>
+    </section>
+    <section>
+        <h2>HTTP response</h2>
+        <img src="./img/cnapi-res.png"/>
+    </section>
+    <section>
+        <h2>HTTP response + internal error details</h2>
+        <img src="./img/cnapi-res-error.png"/>
+    </section>
+    <section>
+        <h2>Error + underlying error cause</h2>
+        <img src="./img/err-chain.png"/>
+
+        <p>Maintain error cause chains with
+        <a href="https://github.com/davepacheco/node-verror">node-verror</a>.
+        Bunyan will render these.</p>
+    </section>
+</section>
+
+<section>
+    <h2>Log more details: filtering</h2>
+
+    <p>Motivate logging of more structured details by making filtering
+    convenient and compelling.</p>
+
+    <pre><code data-trim contenteditable>
+# ERROR level and above
+$ bunyan foo.log -l error
+
+# Watch incoming requests.
+$ tail -f foo.log | bunyan -c 'this.req'
+
+# Server errors in HTTP responses.
+$ tail -f foo.log | bunyan -c 'this.res && this.res.statusCode >= 500'
+</code></pre>
+</section>
+
+<section>
+    <h2>Log more details: serializers</h2>
+
+    <ul>
+        <li>Problem: Dumping full objects -> extraneous goop in the logs.</li>
+        <li>Define how an obj is logged with serializer functions for well-defined log <em>field names</em>.</li>
+        <li>Bunyan defines for <code>err</code>, <code>req</code>, and <code>res</code>. Use is explicit, e.g.:
+        <pre><code data-trim contenteditable>var log = bunyan.createLogger({
+    //...
+    serializers: {
+        err: bunyan.stdSerializers.err,
+        // custom
+        user: function (u) { if (u) return {login: u.login, name: u.name}; }
+    }
+});
+
+log.info({user: theUser}, 'logged in');
+log.error({err: e, user: theUser}, 'logged failed');</code></pre>
+        </li>
+    </ul>
+</section>
+
+<section>
+    <img src="./img/imgapi-req-res-with-data-timers.png"/>
+</section>
+
+<section>
+    <pre><code style="max-height: 600px">
+[2014-08-07T17:25:55.126Z]  INFO: imgapi/74427 on e540e25b-6afc-41ee-a940-a1da39628676: handled: 200 (req_id=dd8d4ad0-1e57-11e4-8499-df7725ba1cdc, route=createimage, action=create-from-vm, audit=true, remoteAddress=172.25.1.39, remotePort=38440, err=false, latency=6354, _audit=true, req.version=~1)
+    POST /images?action=create-from-vm&vm_uuid=c691c60d-8f65-6eb2-81d6-d163d65ea421&incremental=true&account=551a64ca-3e08-c0de-cfd2-da81641890ec HTTP/1.1
+    x-request-id: dd8d4ad0-1e57-11e4-8499-df7725ba1cdc
+    accept: application/json
+    content-type: application/json
+    user-agent: restify/2.6.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.30
+    date: Thu, 07 Aug 2014 17:25:48 GMT
+    content-length: 65
+    content-md5: d02bUF89wkeSJT+jGTEENg==
+    host: imgapi.nightly-1.joyent.us
+    connection: keep-alive
+
+    {
+      "name": "1cfeb76f-d951-c1e3-b9e7-97825c7c4efc",
+      "version": "1.0.0",
+      "owner": "551a64ca-3e08-c0de-cfd2-da81641890ec",
+      "uuid": "1c7a2b2d-f5da-eed2-d37c-e3a01de9a8ee",
+      "requirements": {
+        "min_platform": {
+          "7.0": "20140807T022845Z"
+        }
+      }
+    }
+    --
+    HTTP/1.1 200 OK
+    workflow-api: http://workflow.nightly-1.joyent.us
+    content-type: application/json
+    content-length: 112
+    date: Thu, 07 Aug 2014 17:25:55 GMT
+    server: imgapi/2.0.0
+    x-request-id: dd8d4ad0-1e57-11e4-8499-df7725ba1cdc
+    x-response-time: 6353
+    x-server-name: e540e25b-6afc-41ee-a940-a1da39628676
+
+    {
+      "image_uuid": "1c7a2b2d-f5da-eed2-d37c-e3a01de9a8ee",
+      "job_uuid": "071c5d60-1e28-488a-bdaa-0810c902a3da"
+    }
+    --
+    req.timers: {
+      "handler-0": 9,
+      "bunyan": 47,
+      "parseQueryString": 79,
+      "reqNoAuth": 4,
+      "reqChannel": 14,
+      "resume": 90,
+      "readBody": 840,
+      "parseBody": 260,
+      "apiCreateImage": 250,
+      "apiCreateImageFromVm": 6350993
+    }
+    </code></pre>
+</section>
+
+<section>
+    <h2>Necessity: balancing volume</h2>
+
+    <ul>
+        <li>Serializers help limit the size of a logged object.</li>
+        <li>Obviously, set runtime log level to control log volume.</li>
+        <li>Not enough.</li>
+        <li>Two interesting examples: RequestCaptureStream and DTrace.</li>
+    </ul>
+</section>
+
+<section>
+    <section>
+        <h2>Balancing volume: RequestCaptureStream</h2>
+
+        <ul>
+            <li>Provided by restify web service library.</li>
+            <li>Store low level log records in in-memory ring buffer, <em>per request id</em>.</li>
+            <li>If there is a <code>log.warn</code> or above, then all low level
+            records for <em>for that request id</em> are logged.</li>
+            <li>Used in Joyent's public web APIs.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h4>Code for a RequestCaptureStream</h4>
+        <pre><code data-trim contenteditable style="max-height: 600px;">var log = bunyan.createLogger({
+    name: 'cloudapi',
+    serializers: restify.bunyan.serializers,
+    streams: [
+        {
+            level: 'info',
+            stream: process.stderr
+        },
+        {
+            type: 'raw',
+            stream: new RequestCaptureStream({
+                level: bunyan.WARN,
+                maxRecords: 100,
+                maxRequestIds: 100,
+                streams: [ {
+                    stream: process.stderr
+                } ]
+            })
+        }
+    ]
+});
+        </code></pre>
+    </section>
+
+</section>
+
+<section>
+    <h2>Balancing volume: DTrace</h2>
+    <ul>
+        <li>Typically log level is <code>INFO</code> or <code>DEBUG</code> at best.</li>
+        <li>How to get <code>TRACE</code> logging details?</li>
+        <li>Option 1: Update app config and restart.</li>
+        <li>Option 2: DTrace <code>bunyan</code> provider. No restart.
+        <pre><code data-trim>$ bunyan -p $PID
+$ bunyan -p $NAME    # search processes by name via `pgrep` or `ps`
+$ bunyan -p '*'      # instrument *all* processes!
+$ bunyan -p '*' -l DEBUG
+$ bunyan -p '*' -c 'this.name === "cloudapi"'</code></pre>
+        </li>
+    </ul>
+</section>
+
+<section>
+    <h2>`<code>bunyan -p</code>` demo</h2>
+<!--
+bunyan -p '*' # in COAL GZ is pretty cool
+
+# just IMGAPI
+bunyan -p '*' -l debug -c 'this.name === "imgapi"' | grep -v '^{'
+sdc-imgadm list name=amon
+-->
+</section>
+
+<section>
+    <h2>Motivation: Tie things together</h2>
+    <ul>
+        <li>Service logs can be a jumble of simultaneous operations.</li>
+        <li>How to meaningfully separate?</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Tie things together: module-scope loggers don't help</h2>
+
+    <pre><code data-trim>lib/main.js:    var log = log4j.getLogger('foo')
+lib/db.js:      var log = log4j.getLogger('foo.db')
+lib/model.js:   var log = log4j.getLogger('foo.model')
+</code></pre>
+
+    <p style="margin-top: 1em">Common with log4j-inspired libraries.<br>
+    Groups on module, not on related operations.</p>
+</section>
+
+<section>
+    <h2>Tie things together: always log context -> PITA</h2>
+
+    <pre><code data-trim class="javascript">log.info('user=%s start blerging', user)
+log.info('user=%s frob the frib', user);
+log.info('bliging bloop');    // oops, forgot to log `user`
+</code></pre>
+    <ul style="margin-top: 1em">
+        <li>Easy to forget to include relevant context.</li>
+        <li>Labourious to add, so gets skipped.</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Tie things together: <code>log.child</code></h2>
+
+    <pre><code data-trim class="javascript">req.log = app.log.child({req_id: req.getId()});
+// ...
+req.log.info({route: route}, 'routed request');
+// ...
+req.log.debug(err, 'validation failed');
+</code></pre>
+
+    <ul style="margin-top: 1em">
+        <li>Group related logging via logger specialization with <code>log.child</code>.</li>
+        <li>Annoyance: Now need to pass a logger around code.</li>
+        <li>Attach to relevant context object, if available.<br>
+        E.g. <a href="https://github.com/mcavage/node-restify">restify</a>
+        creates a <code>&lt;request&gt;.log</code> for
+        each HTTP request.</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Tie things together: <code>req_id</code></h2>
+    <pre><code data-trim>$ bunyan foo.log \
+    -c 'this.req_id === 'd6740300-1e58-11e4-8f85-2fef7c7c36dd'"
+</code></pre>
+    <p style="margin-top: 1em">Now we can see all logging for a particular request.</p>
+</section>
+
+<section>
+    <h2>Tie things together: <code>req_id++</code></h2>
+
+    <p>How about tracking a request through multiple services? Example:
+    provision a VM in SmartDataCenter.
+    <ul>
+        <li>Cloud API: public facing API</li>
+        <li>VM API: coordinates creation of VM</li>
+        <li>Server API (CNAPI): handles talking to server agents</li>
+        <li>Network API (NAPI): network provisioning</li>
+        <li>Firewall API (FWAPI): firewall management for VMs</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Tie things together: <code>req_id++</code></h2>
+
+    <p style="margin-top: 1em">Demo tracking VM creation in SmartDataCenter via
+    <code>req_id</code>.</p>
+</section>
+
+<!--
+<section>
+    <h2>Moar</h2>
+    <ul>
+        <li>...</li>
+    </ul>
+</section>
+-->
+
+<section>
+    <h2>Questions?</h2>
+
+    <p style="margin-top: 2em;">Trent Mick
+    (<a href="https://twitter.com/trentmick">@trentmick</a>)</p>
+    <p>
+    <a href="https://github.com/trentm/node-bunyan">github.com/trentm/node-bunyan</a><br>
+    <a href="https://groups.google.com/forum/?fromgroups#!forum/bunyan-logging">bunyan-logging@googlegroups.com</a>
+    </p>
+</section>
+
+</div>
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.min.js"></script>
+
+<script>
+    // Full list of configuration options available here:
+    // https://github.com/hakimel/reveal.js#configuration
+    Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'linear', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Parallax scrolling
+        // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+        // parallaxBackgroundSize: '2100px 900px',
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+            { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+            { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+            { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+            { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+        ]
+    });
+
+</script>
+
+</body>
+</html>
