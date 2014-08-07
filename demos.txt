@@ -1,0 +1,58 @@
+
+-- bunyan -p demo
+
+ssh nightly1   # or coal
+
+bunyan -p '*'
+
+bunyan -p '*' -l debug
+
+bunyan -p '*' -l debug --strict -c 'this.req'
+
+bunyan -p '*' -l debug -c 'this.name === "moray"' --strict -o bunyan | json -ga time msg
+
+bunyan -p '*' -l debug -c 'this.name === "moray"' --strict -o bunyan | head -1 | json -ga
+
+
+
+-- Dtrace demo:
+
+sdc-vmapi /vms -X POST -d@- <<EOP
+{
+  "owner_uuid": "$(bash /lib/sdc/config.sh -json | json ufds_admin_uuid)",
+  "brand": "joyent",
+  "ram": 128,
+  "networks": [{"uuid": "$(sdc-napi /networks | json -H -c "this.name=='external'" 0.uuid)"}],
+  "server_uuid": "$(sysinfo | json UUID)",
+  "image_uuid": "$(sdc-imgadm list name=base --latest -H -o uuid)",
+  "alias": "play1"
+}
+EOP
+
+bunyan -l INFO -p '*' -c 'this.req_id === "2f791020-1e69-11e4-a749-57b0b7d6afb4"'
+
+sdc sdc-req REQ_ID | bunyan
+
+
+
+-- Analysis:
+
+ssh nightly1
+sdc-login imgapi
+cd /var/log/sdc/upload
+bunyan imgapi_* -o bunyan --strict -c 'this.req' | json -ga req.version req.headers.user-agent
+
+[root@e540e25b-6afc-41ee-a940-a1da39628676 (nightly-1:imgapi0) /var/log/sdc/upload]# bunyan imgapi_* -o bunyan --strict -c 'this.req' | json -ga req.version req.headers.user-agent
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+~1 curl/7.27.0
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
+* restify/2.8.1 (ia32-sunos; v8/3.14.5.9; OpenSSL/1.0.1h) node/0.10.29
