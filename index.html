@@ -67,9 +67,9 @@
     <h2>Bunyan is</h2>
     <p style="margin: 0 0 1em 1em">&#x2460 A node.js lib for structured service <small>(and CLI)</small> logging</p>
 
-    <pre><code data-trim contenteditable>$ npm install bunyan
+    <pre><code data-trim contenteditable class="bash">$ npm install bunyan
 $ cat foo.js</code></pre>
-    <pre><code data-trim contenteditable>
+    <pre><code data-trim contenteditable class="javascript">
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({
     name: 'foo',
@@ -147,10 +147,10 @@ bunyan -c 'this.user=="bob"' foo.log
     <ul>
         <li>Make it convenient in code to log more and appropriate details.</li>
         <li>Painful, limited (traditional):
-        <pre><code data-trim contenteditable>log.info('%s %s %s %s', req.method, req.url,
+        <pre><code data-trim contenteditable class="javascript">log.info('%s %s %s %s', req.method, req.url,
     res.statusCode, res.latency)</code></pre></li>
         <li>Easier to code (bunyan):
-        <pre><code data-trim contenteditable>log.info({req: req}, 'received request');
+        <pre><code data-trim contenteditable class="javascript">log.info({req: req}, 'received request');
 log.debug({res: res}, 'responded');
 log.error({err: err, path: path}, 'save failed');</code></pre></li>
     </ul>
@@ -191,7 +191,7 @@ log.error({err: err, path: path}, 'save failed');</code></pre></li>
     <p>Motivate logging of more structured details by making filtering
     convenient and compelling.</p>
 
-    <pre><code data-trim contenteditable>
+    <pre><code data-trim contenteditable class="bash">
 # ERROR level and above
 $ bunyan foo.log -l error
 
@@ -210,7 +210,7 @@ $ tail -f foo.log | bunyan -c 'this.res && this.res.statusCode >= 500'
         <li>Problem: Dumping full objects -> extraneous goop in the logs.</li>
         <li>Define how an obj is logged with serializer functions for well-defined log <em>field names</em>.</li>
         <li>Bunyan defines for <code>err</code>, <code>req</code>, and <code>res</code>. Use is explicit, e.g.:
-        <pre><code data-trim contenteditable>var log = bunyan.createLogger({
+        <pre><code data-trim contenteditable class="javascript">var log = bunyan.createLogger({
     //...
     serializers: {
         err: bunyan.stdSerializers.err,
@@ -311,7 +311,7 @@ log.error({err: e, user: theUser}, 'logged failed');</code></pre>
 
     <section>
         <h4>Code for a RequestCaptureStream</h4>
-        <pre><code data-trim contenteditable style="max-height: 600px;">var log = bunyan.createLogger({
+        <pre><code data-trim contenteditable class="javascript" style="max-height: 600px;">var log = bunyan.createLogger({
     name: 'cloudapi',
     serializers: restify.bunyan.serializers,
     streams: [
@@ -344,7 +344,7 @@ log.error({err: e, user: theUser}, 'logged failed');</code></pre>
         <li>How to get <code>TRACE</code> logging details?</li>
         <li>Option 1: Update app config and restart.</li>
         <li>Option 2: DTrace <code>bunyan</code> provider. No restart.
-        <pre><code data-trim>$ bunyan -p $PID
+        <pre><code data-trim class="bash">$ bunyan -p $PID
 $ bunyan -p $NAME    # search processes by name via `pgrep` or `ps`
 $ bunyan -p '*'      # instrument *all* processes!
 $ bunyan -p '*' -l DEBUG
@@ -419,8 +419,8 @@ req.log.debug(err, 'validation failed');
 
 <section>
     <h2>Tie things together: <code>req_id</code></h2>
-    <pre><code data-trim>$ bunyan foo.log \
-    -c 'this.req_id === 'd6740300-1e58-11e4-8f85-2fef7c7c36dd'"
+    <pre><code data-trim class="bash">$ bunyan foo.log \
+    -c "this.req_id === 'd6740300-1e58-11e4-8f85-2fef7c7c36dd'"
 </code></pre>
     <p style="margin-top: 1em">Now we can see all logging for a particular request.</p>
 </section>
