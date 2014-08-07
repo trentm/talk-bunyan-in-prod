@@ -15,6 +15,8 @@ bunyan -p '*' -l debug -c 'this.name === "moray"' --strict -o bunyan | head -1 |
 
 
 
+
+
 -- Dtrace demo:
 
 sdc-vmapi /vms -X POST -d@- <<EOP
@@ -31,7 +33,11 @@ EOP
 
 bunyan -l INFO -p '*' -c 'this.req_id === "2f791020-1e69-11e4-a749-57b0b7d6afb4"'
 
-sdc sdc-req REQ_ID | bunyan
+sdc sdc-req REQ_ID | bunyan | less
+
+sdc sdc-req 49e5f720-1e8c-11e4-a749-57b0b7d6afb4 | json -ga name latency
+
+
 
 
 

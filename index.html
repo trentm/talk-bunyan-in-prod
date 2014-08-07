@@ -301,10 +301,10 @@ log.error({err: e, user: theUser}, 'logged failed');</code></pre>
         <h2>Balancing volume: RequestCaptureStream</h2>
 
         <ul>
-            <li>Provided by restify web service library.</li>
+            <li>Provided by the <a href="https://github.com/mcavage/node-restify">restify</a> web service library.</li>
             <li>Store low level log records in in-memory ring buffer, <em>per request id</em>.</li>
             <li>If there is a <code>log.warn</code> or above, then all low level
-            records for <em>for that request id</em> are logged.</li>
+            records <em>for that request id</em> are logged.</li>
             <li>Used in Joyent's public web APIs.</li>
         </ul>
     </section>
@@ -340,7 +340,7 @@ log.error({err: e, user: theUser}, 'logged failed');</code></pre>
 <section>
     <h2>Balancing volume: DTrace</h2>
     <ul>
-        <li>Typically log level is <code>INFO</code> or <code>DEBUG</code> at best.</li>
+        <li>Typically a prod service log level is <code>INFO</code>, or <code>DEBUG</code> at best.</li>
         <li>How to get <code>TRACE</code> logging details?</li>
         <li>Option 1: Update app config and restart.</li>
         <li>Option 2: DTrace <code>bunyan</code> provider. No restart.
@@ -428,15 +428,18 @@ req.log.debug(err, 'validation failed');
 <section>
     <h2>Tie things together: <code>req_id++</code></h2>
 
-    <p>How about tracking a request through multiple services? Example:
-    provision a VM in SmartDataCenter.
+    <p>How about tracking a request through multiple services?</p>
+
+    <div style="font-size: 70%; margin-top: 1em;">
+    <p>Example: provision a VM in SmartDataCenter</p>
     <ul>
-        <li>Cloud API: public facing API</li>
+        <!--<li>Cloud API: public facing API</li>-->
         <li>VM API: coordinates creation of VM</li>
         <li>Server API (CNAPI): handles talking to server agents</li>
         <li>Network API (NAPI): network provisioning</li>
         <li>Firewall API (FWAPI): firewall management for VMs</li>
     </ul>
+    </div>
 </section>
 
 <section>
